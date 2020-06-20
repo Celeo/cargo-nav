@@ -28,8 +28,13 @@ arg_enum! {
     }
 }
 
-/// TODO docs
 #[derive(Debug, StructOpt)]
+/// CLI program for quickly navigating to crate links as found on crates.io.
+///
+/// Call with: cargo nav <crate-name> [destination]
+///
+/// The 'destination' argument is one of three options, shown below. The single-
+/// letter versions are shorthand for less typing.
 struct Options {
     #[structopt(short, long)]
     debug: bool,
