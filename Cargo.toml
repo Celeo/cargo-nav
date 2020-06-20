@@ -5,8 +5,8 @@ authors = ["Celeo <mattboulanger@fastmail.com>"]
 edition = "2018"
 description = "Navigate directly to crate links from your terminal"
 readme = "README.md"
-homepage = "https://github.com/celeo/roles_for_reactions"
-repository = "https://github.com/celeo/roles_for_reactions"
+homepage = "https://github.com/celeo/cargo-nav"
+repository = "https://github.com/celeo/cargo-nav"
 license = "MIT OR Apache-2.0"
 exclude = [
   ".github"
