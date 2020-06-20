@@ -56,24 +56,21 @@ struct CrateInfo {
 
 impl fmt::Display for CrateInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.homepage.is_none() && self.documentation.is_none() && self.repository.is_none() {
+            return write!(f, "no links found for crate '{}'", self.name);
+        }
         let pairs = vec![
             ("Homepage", &self.homepage),
             ("Documentation", &self.documentation),
             ("Repository", &self.repository),
         ];
-        write!(f, "Crate {}", self.name)?;
-        let trimmed: Vec<_> = pairs
+        let buffer = pairs
             .iter()
             .filter(|(_, link)| link.is_some())
-            .map(|(label, link_opt)| (label, link_opt.as_ref().unwrap()))
-            .collect();
-        for (label, link) in trimmed {
-            write!(f, ", {}: {}", label, link)?;
-        }
-        if self.homepage.is_none() && self.documentation.is_none() && self.repository.is_none() {
-            write!(f, ", No links provided")?;
-        }
-        Ok(())
+            .map(|(label, link)| format!("{}: {}", label, link.as_ref().unwrap()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write!(f, "{}", buffer)
     }
 }
 
@@ -105,9 +102,16 @@ fn setup_logging(debug: bool) -> Result<()> {
     Ok(())
 }
 
+fn get_api_url() -> String {
+    #[cfg(not(test))]
+    return String::from("https://crates.io/api/v1/crates");
+    #[cfg(test)]
+    return mockito::server_url();
+}
+
 /// Get info from a crate from the crates.io API.
 fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
-    let resp = reqwest::blocking::get(&format!("https://crates.io/api/v1/crates/{}", crate_name))?;
+    let resp = reqwest::blocking::get(&format!("{}/{}", get_api_url(), crate_name))?;
     if !resp.status().is_success() {
         return Err(anyhow!(
             "Got bad status {} from crates.io API",
@@ -118,23 +122,17 @@ fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
     Ok(data.crate_info)
 }
 
-/// Open the requested link from the crate info, as long as it's set.
-fn open_link(info: &CrateInfo, destination: &Destination) -> Result<()> {
+/// Determine which URL to open.
+fn determine_link(info: &CrateInfo, destination: &Destination) -> Result<String> {
     let pair = match destination {
         Destination::H | Destination::Homepage => ("homepage", &info.homepage),
         Destination::D | Destination::Documentation => ("documentation", &info.documentation),
         Destination::R | Destination::Repository => ("repository", &info.repository),
     };
-    let url = match pair.1 {
-        Some(u) => u,
-        None => {
-            error!("The {} link isn't set for that crate", pair.0);
-            info!("Here is the info that was found: {}", info);
-            process::exit(1);
-        }
-    };
-    webbrowser::open(url)?;
-    Ok(())
+    match pair.1 {
+        Some(u) => Ok(u.to_owned()),
+        None => Err(anyhow!("The {} link isn't set for that crate", pair.0)),
+    }
 }
 
 /// Entrypoint.
@@ -167,9 +165,102 @@ fn main() {
             process::exit(1);
         }
     };
-    if let Err(e) = open_link(&info, &opt.destination) {
+    let url = match determine_link(&info, &opt.destination) {
+        Ok(u) => u,
+        Err(e) => {
+            error!("{}", e);
+            info!("Here is the info that was found: {}", info);
+            process::exit(1);
+        }
+    };
+    if let Err(e) = webbrowser::open(&url) {
         debug!("Error opening link: {}", e);
         error!("Could not open the link");
         process::exit(1);
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{determine_link, get_crate_info, CrateInfo, Destination};
+    use mockito::mock;
+
+    fn crate_info() -> CrateInfo {
+        CrateInfo {
+            name: "a".to_owned(),
+            homepage: Some("b".to_owned()),
+            documentation: Some("c".to_owned()),
+            repository: None,
+        }
+    }
+
+    #[test]
+    fn test_determine_link_short() {
+        let url = determine_link(&crate_info(), &Destination::D).unwrap();
+        assert_eq!(url, "c");
+    }
+
+    #[test]
+    fn test_determine_link_long() {
+        let url = determine_link(&crate_info(), &Destination::Homepage).unwrap();
+        assert_eq!(url, "b");
+    }
+
+    #[test]
+    fn determine_link_missing() {
+        let result = determine_link(&crate_info(), &Destination::Repository);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_crate_info_just_name() {
+        let _m = mock("GET", "/a")
+            .with_body(r#"{"crate":{"name":"a"}}"#)
+            .create();
+        let info = get_crate_info("a").unwrap();
+        assert_eq!(info.name, "a");
+        assert_eq!(info.homepage, None);
+        assert_eq!(info.documentation, None);
+        assert_eq!(info.repository, None);
+        _m.assert();
+    }
+
+    #[test]
+    fn test_get_crate_info_all() {
+        let _m = mock("GET", "/a")
+            .with_body(
+                r#"{"crate":{"name":"a","homepage":"b","documentation":"c","repository":"d","other":"info"}}"#,
+            )
+            .create();
+        let info = get_crate_info("a").unwrap();
+        assert_eq!(info.name, "a");
+        assert_eq!(info.homepage, Some("b".to_owned()));
+        assert_eq!(info.documentation, Some("c".to_owned()));
+        assert_eq!(info.repository, Some("d".to_owned()));
+        _m.assert();
+    }
+
+    #[test]
+    fn test_get_crate_info_not_found() {
+        let result = get_crate_info("b");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_crate_info_some() {
+        let s = format!("{}", crate_info());
+        assert_eq!(s, "Homepage: b, Documentation: c");
+    }
+
+    #[test]
+    fn test_get_crate_info_none() {
+        let info = CrateInfo {
+            name: "a".to_owned(),
+            homepage: None,
+            documentation: None,
+            repository: None,
+        };
+        let s = format!("{}", info);
+        assert_eq!(s, "no links found for crate 'a'");
+    }
 }
