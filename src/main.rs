@@ -12,7 +12,7 @@ use fern::{
 };
 use log::{debug, error, info, LevelFilter};
 use serde::Deserialize;
-use std::{fmt, io, process};
+use std::{env, fmt, io, process};
 use structopt::{clap::arg_enum, StructOpt};
 
 arg_enum! {
@@ -139,7 +139,15 @@ fn open_link(info: &CrateInfo, destination: &Destination) -> Result<()> {
 
 /// Entrypoint.
 fn main() {
-    let opt = Options::from_args();
+    // conditionally skip 1 to provide running through both 'cargo nav' and 'cargo-nav'
+    let args: Vec<_> = env::args().collect();
+    let args = if args.len() > 1 && args[1] == "nav" {
+        args.iter().skip(1).cloned().collect::<Vec<_>>()
+    } else {
+        args
+    };
+
+    let opt = Options::from_iter(args.iter());
     if let Err(e) = setup_logging(opt.debug) {
         eprintln!("Error setting up: {}", e);
         process::exit(1)
