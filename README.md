@@ -2,15 +2,17 @@
 
 ![Rust CI](https://github.com/Celeo/cargo-nav/workflows/Rust%20CI/badge.svg?branch=master)
 
-TBD
+Navigate directly to crate links from your terminal
 
 ## Installing
 
-TBD
+```sh
+cargo install cargo-nav
+```
 
 ## Using
 
-TBD
+Get usage information with `cargo nav --help`
 
 ## Developing
 
