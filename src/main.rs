@@ -1,18 +1,46 @@
+//! Crate to quickly navigate to a crate's published links from the terminal.
+//!
+//! The links you can open your browser to are the homepage, documentation,
+//! and repository links that show, when set, on crates.io pages.
+
 #![deny(clippy::all)]
 
 use anyhow::{anyhow, Result};
+use fern::{
+    colors::{Color, ColoredLevelConfig},
+    Dispatch,
+};
 use log::{debug, error, info, LevelFilter};
 use serde::Deserialize;
 use std::{fmt, io, process};
-use structopt::StructOpt;
+use structopt::{clap::arg_enum, StructOpt};
 
+arg_enum! {
+    /// Destination options.
+    ///
+    /// The single-letter options are provided as good
+    /// UX shorthand for the CLI.
+    #[derive(Debug)]
+    enum Destination {
+        H, Homepage,
+        D, Documentation,
+        R, Repository,
+    }
+}
+
+/// TODO docs
 #[derive(Debug, StructOpt)]
 struct Options {
     #[structopt(short, long)]
     debug: bool,
+
     crate_name: String,
+
+    #[structopt(possible_values = &Destination::variants(), case_insensitive = true, default_value = "h")]
+    destination: Destination,
 }
 
+/// Crate info JSON struct.
 #[derive(Debug, Deserialize)]
 struct CrateInfo {
     name: String,
@@ -44,24 +72,27 @@ impl fmt::Display for CrateInfo {
     }
 }
 
+/// Top-level crates.io API response data.
 #[derive(Debug, Deserialize)]
 struct CrateInfoWrapper {
     #[serde(rename = "crate")]
     crate_info: CrateInfo,
 }
 
+/// Set up logging based on whether or not the user wants to see debug logging.
 fn setup_logging(debug: bool) -> Result<()> {
     let base_config = if debug {
-        fern::Dispatch::new().level(LevelFilter::Debug)
+        Dispatch::new().level(LevelFilter::Debug)
     } else {
-        fern::Dispatch::new().level(LevelFilter::Info)
+        Dispatch::new().level(LevelFilter::Info)
     };
-    let stdout_config = fern::Dispatch::new()
-        .format(|out, message, record| {
+    let colors = ColoredLevelConfig::new().error(Color::Red);
+    let stdout_config = Dispatch::new()
+        .format(move |out, message, record| {
             if record.level() == LevelFilter::Info {
                 out.finish(format_args!("{}", message))
             } else {
-                out.finish(format_args!("[{}] {}", record.level(), message))
+                out.finish(format_args!("{} {}", colors.color(record.level()), message))
             }
         })
         .chain(io::stdout());
@@ -69,6 +100,7 @@ fn setup_logging(debug: bool) -> Result<()> {
     Ok(())
 }
 
+/// Get info from a crate from the crates.io API.
 fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
     let resp = reqwest::blocking::get(&format!("https://crates.io/api/v1/crates/{}", crate_name))?;
     if !resp.status().is_success() {
@@ -81,19 +113,40 @@ fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
     Ok(data.crate_info)
 }
 
+/// Open the requested link from the crate info, as long as it's set.
+fn open_link(info: &CrateInfo, destination: &Destination) -> Result<()> {
+    let pair = match destination {
+        Destination::H | Destination::Homepage => ("homepage", &info.homepage),
+        Destination::D | Destination::Documentation => ("documentation", &info.documentation),
+        Destination::R | Destination::Repository => ("repository", &info.repository),
+    };
+    let url = match pair.1 {
+        Some(u) => u,
+        None => {
+            error!("The {} link isn't set for that crate", pair.0);
+            info!("Here is the info that was found: {}", info);
+            process::exit(1);
+        }
+    };
+    webbrowser::open(url)?;
+    Ok(())
+}
+
+/// Entrypoint.
 fn main() {
     let opt = Options::from_args();
     if let Err(e) = setup_logging(opt.debug) {
         eprintln!("Error setting up: {}", e);
         process::exit(1)
     }
+    debug!("CLI options: {:?}", opt);
     let info = match get_crate_info(&opt.crate_name) {
         Ok(i) => {
             debug!("API info: {:?}", i);
             i
         }
         Err(e) => {
-            debug!("{}", e);
+            debug!("Error getting crate info: {}", e);
             error!(
                 r#"Could not find crate information for "{}""#,
                 opt.crate_name
@@ -101,6 +154,9 @@ fn main() {
             process::exit(1);
         }
     };
-
-    info!("{}", info);
+    if let Err(e) = open_link(&info, &opt.destination) {
+        debug!("Error opening link: {}", e);
+        error!("Could not open the link");
+        process::exit(1);
+    };
 }
