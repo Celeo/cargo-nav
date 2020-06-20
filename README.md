@@ -2,7 +2,9 @@
 
 ![Rust CI](https://github.com/Celeo/cargo-nav/workflows/Rust%20CI/badge.svg?branch=master)
 
-Navigate directly to crate links from your terminal
+Navigate directly to crate links from your terminal.
+
+Inspired by [njt](https://github.com/kachkaev/njt).
 
 ## Installing
 
