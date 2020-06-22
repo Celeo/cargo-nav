@@ -1,6 +1,8 @@
 # cargo-nav
 
 ![Rust CI](https://github.com/Celeo/cargo-nav/workflows/Rust%20CI/badge.svg?branch=master)
+![Crates.io](https://img.shields.io/crates/v/cargo-nav.svg)
+![License](https://img.shields.io/crates/l/cargo-nav)
 
 Navigate directly to crate links from your terminal.
 
