@@ -22,6 +22,7 @@ arg_enum! {
     /// UX shorthand for the CLI.
     #[derive(Debug)]
     enum Destination {
+        C, Crate,
         H, Homepage,
         D, Documentation,
         R, Repository,
@@ -33,7 +34,7 @@ arg_enum! {
 ///
 /// Call with: cargo nav <crate-name> [destination]
 ///
-/// The 'destination' argument is one of three options, shown below. The single-
+/// The 'destination' argument is one of several options, shown below. The single-
 /// letter versions are shorthand for less typing.
 struct Options {
     #[structopt(short, long)]
@@ -41,12 +42,12 @@ struct Options {
 
     crate_name: String,
 
-    #[structopt(possible_values = &Destination::variants(), case_insensitive = true, default_value = "h")]
+    #[structopt(possible_values = &Destination::variants(), case_insensitive = true, default_value = "c")]
     destination: Destination,
 }
 
 /// Crate info JSON struct.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct CrateInfo {
     name: String,
     homepage: Option<String>,
@@ -57,16 +58,19 @@ struct CrateInfo {
 impl fmt::Display for CrateInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.homepage.is_none() && self.documentation.is_none() && self.repository.is_none() {
-            return write!(f, "no links found for crate '{}'", self.name);
+            return write!(
+                f,
+                "no links found for crate '{name}'; check https://crates.io/crates/{name}",
+                name = self.name,
+            );
         }
-        let pairs = vec![
+        let pairs = [
             ("Homepage", &self.homepage),
             ("Documentation", &self.documentation),
             ("Repository", &self.repository),
         ];
         let buffer = pairs
             .iter()
-            .filter(|(_, link)| link.is_some())
             .map(|(label, link)| format!("{}: {}", label, link.as_ref().unwrap()))
             .collect::<Vec<_>>()
             .join(", ");
@@ -124,7 +128,9 @@ fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
 
 /// Determine which URL to open.
 fn determine_link(info: &CrateInfo, destination: &Destination) -> Result<String> {
+    let crate_url = Some(format!("https://crates.io/crates/{}", info.name));
     let pair = match destination {
+        Destination::C | Destination::Crate => ("crate", &crate_url),
         Destination::H | Destination::Homepage => ("homepage", &info.homepage),
         Destination::D | Destination::Documentation => ("documentation", &info.documentation),
         Destination::R | Destination::Repository => ("repository", &info.repository),

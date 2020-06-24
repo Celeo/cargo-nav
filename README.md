@@ -18,13 +18,21 @@ cargo install cargo-nav
 
 Get usage information with `cargo nav --help`
 
-Call via `cargo nav <crate_name>` to jump to the homepage of that crate as listed on [crates.io](https://crates.io/). You can specify an additional argument to jump to the [r]epository or [d]ocumentation:
+Call via `cargo nav <crate_name>` to jump to the homepage of that crate as listed on [crates.io](https://crates.io/). You can specify an additional argument to jump to the [r]epository, [d]ocumentation, or [c]rate pages.
 
 ```sh
 cargo nav serde
+cargo nav serde c
+cargo nav serde crate
+cargo nav serde h
+cargo nav serde homepage
 cargo nav serde r
+cargo nav serde repository
+cargo nav serde d
 cargo nav serde documentation
 ```
+
+The short arguments 'h', 'r', and 'd' are available as less typing to get to their respective links. Going to the crate's homepage is the default behavior.
 
 ## Developing
 
