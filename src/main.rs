@@ -71,6 +71,7 @@ impl fmt::Display for CrateInfo {
         ];
         let buffer = pairs
             .iter()
+            .filter(|(_, link)| link.is_some())
             .map(|(label, link)| format!("{}: {}", label, link.as_ref().unwrap()))
             .collect::<Vec<_>>()
             .join(", ");
@@ -252,6 +253,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // FIXME
     #[test]
     fn test_get_crate_info_some() {
         let s = format!("{}", crate_info());
@@ -267,6 +269,9 @@ mod tests {
             repository: None,
         };
         let s = format!("{}", info);
-        assert_eq!(s, "no links found for crate 'a'");
+        assert_eq!(
+            s,
+            "no links found for crate 'a'; check https://crates.io/crates/a"
+        );
     }
 }
