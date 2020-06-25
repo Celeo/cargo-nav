@@ -89,7 +89,9 @@ struct CrateInfoWrapper {
 /// Set up logging based on whether or not the user wants to see debug logging.
 fn setup_logging(debug: bool) -> Result<()> {
     let base_config = if debug {
-        Dispatch::new().level(LevelFilter::Debug)
+        Dispatch::new()
+            .level(LevelFilter::Debug)
+            .level_for("hyper::proto", LevelFilter::Info)
     } else {
         Dispatch::new().level(LevelFilter::Info)
     };
@@ -99,7 +101,12 @@ fn setup_logging(debug: bool) -> Result<()> {
             if record.level() == LevelFilter::Info {
                 out.finish(format_args!("{}", message))
             } else {
-                out.finish(format_args!("{} {}", colors.color(record.level()), message))
+                out.finish(format_args!(
+                    "[{}] {} {}",
+                    record.target(),
+                    colors.color(record.level()),
+                    message
+                ))
             }
         })
         .chain(io::stdout());
@@ -116,6 +123,7 @@ fn get_api_url() -> String {
 
 /// Get info from a crate from the crates.io API.
 fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
+    debug!("Requesting crate info from crates.io API");
     let resp = reqwest::blocking::get(&format!("{}/{}", get_api_url(), crate_name))?;
     if !resp.status().is_success() {
         return Err(anyhow!(
@@ -180,6 +188,7 @@ fn main() {
             process::exit(1);
         }
     };
+    debug!("URL to open: {}", url);
     if let Err(e) = webbrowser::open(&url) {
         debug!("Error opening link: {}", e);
         error!("Could not open the link");
