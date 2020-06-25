@@ -183,7 +183,7 @@ fn main() {
     let url = match determine_link(&info, &opt.destination) {
         Ok(u) => u,
         Err(e) => {
-            error!("{}", e);
+            error!("Error determining link: {}", e);
             info!("Here is the info that was found: {}", info);
             process::exit(1);
         }
@@ -262,7 +262,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // FIXME
     #[test]
     fn test_get_crate_info_some() {
         let s = format!("{}", crate_info());
