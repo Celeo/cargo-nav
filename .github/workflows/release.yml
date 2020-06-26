@@ -1,8 +1,13 @@
 name: Release
 
-on: release
+on:
+  release:
+    types: [create]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps: []
+    steps:
+      - uses: actions/checkout@v2
+      - name: Publish
+        run: cargo publish
