@@ -30,6 +30,7 @@ arg_enum! {
 }
 
 #[derive(Debug, StructOpt)]
+#[structopt(name = "cargo-nav")]
 /// CLI program for quickly navigating to crate links as found on crates.io.
 ///
 /// Call with: cargo nav <crate-name> [destination]
