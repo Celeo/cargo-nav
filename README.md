@@ -32,7 +32,7 @@ cargo nav serde d
 cargo nav serde documentation
 ```
 
-The short arguments 'h', 'r', and 'd' are available as less typing to get to their respective links. Going to the crate's homepage is the default behavior.
+The short arguments 'c', 'h', 'r', and 'd' are available as less typing to get to their respective links. Going to the crate's homepage is the default behavior.
 
 ## Developing
 
