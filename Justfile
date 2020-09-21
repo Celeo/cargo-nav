@@ -1,8 +1,16 @@
-default:
-  cargo check --all
-  cargo build --all
+default: build
+
+check:
+  @cargo check
+  @cargo +nightly clippy
+
+build: check
+  @cargo build
 
 check_cargo_subcommand:
-  PATH=$PATH:./target/debug cargo nav --help
+  @PATH=$PATH:./target/debug cargo nav --help
+
+test_coverage:
+  cargo tarpaulin
 
 alias ccs := check_cargo_subcommand
