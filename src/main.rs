@@ -164,7 +164,7 @@ fn main() {
     let opt = Options::from_iter(args.iter());
     if let Err(e) = setup_logging(opt.debug) {
         eprintln!("Error setting up: {}", e);
-        process::exit(1)
+        process::exit(1);
     }
     debug!("CLI options: {:?}", opt);
     let info = match get_crate_info(&opt.crate_name) {
