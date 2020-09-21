@@ -11,6 +11,6 @@ check_cargo_subcommand:
   @PATH=$PATH:./target/debug cargo nav --help
 
 test_coverage:
-  cargo tarpaulin
+  cargo tarpaulin -o Html
 
 alias ccs := check_cargo_subcommand
