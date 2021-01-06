@@ -125,7 +125,12 @@ fn get_api_url() -> String {
 /// Get info from a crate from the crates.io API.
 fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
     debug!("Requesting crate info from crates.io API");
-    let resp = reqwest::blocking::get(&format!("{}/{}", get_api_url(), crate_name))?;
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("cargo-nav (https://github.com/celeo/cargo-nav)")
+        .build()?;
+    let resp = client
+        .get(&format!("{}/{}", get_api_url(), crate_name))
+        .send()?;
     if !resp.status().is_success() {
         return Err(anyhow!(
             "Got bad status {} from crates.io API",
