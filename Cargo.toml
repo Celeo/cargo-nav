@@ -1,6 +1,6 @@
 [package]
 name = "cargo-nav"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["Celeo <mattboulanger@fastmail.com>"]
 edition = "2018"
 description = "Navigate directly to crate links from your terminal"
@@ -21,14 +21,14 @@ categories = [
 ]
 
 [dependencies]
-anyhow = "1.0.31"
-fern = { version = "0.6.0", features = ["colored"] }
-log = "0.4.8"
-reqwest = { version = "0.11.0", features = ["blocking", "json"] }
-serde = { version = "1.0.113", features = ["derive"] }
-serde_json = "1.0.55"
-structopt = "0.3.15"
-webbrowser = "0.5.4"
+anyhow = "1.0.69"
+fern = { version = "0.6.1", features = ["colored"] }
+log = "0.4.17"
+reqwest = { version = "0.11.14", features = ["blocking", "json"] }
+serde = { version = "1.0.156", features = ["derive"] }
+serde_json = "1.0.94"
+structopt = "0.3.26"
+webbrowser = "0.8.7"
 
 [dev-dependencies]
 mockito = "0.25.2"
