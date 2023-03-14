@@ -129,7 +129,7 @@ fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
         .user_agent("cargo-nav (https://github.com/celeo/cargo-nav)")
         .build()?;
     let resp = client
-        .get(&format!("{}/{}", get_api_url(), crate_name))
+        .get(format!("{}/{}", get_api_url(), crate_name))
         .send()?;
     if !resp.status().is_success() {
         return Err(anyhow!(
