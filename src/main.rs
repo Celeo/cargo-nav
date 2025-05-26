@@ -3,17 +3,15 @@
 //! The links you can open your browser to are the homepage, documentation,
 //! and repository links that show, when set, on crates.io pages.
 
+#![deny(unsafe_code)]
 #![deny(clippy::all)]
 
-use anyhow::{anyhow, Result};
-use fern::{
-    colors::{Color, ColoredLevelConfig},
-    Dispatch,
-};
-use log::{debug, error, info, LevelFilter};
+use anyhow::{Result, anyhow};
+use fern::Dispatch;
+use log::{LevelFilter, debug, error, info};
 use serde::Deserialize;
 use std::{env, fmt, io, process};
-use structopt::{clap::arg_enum, StructOpt};
+use structopt::{StructOpt, clap::arg_enum};
 
 arg_enum! {
     /// Destination options.
@@ -29,20 +27,23 @@ arg_enum! {
     }
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "cargo-nav")]
 /// CLI program for quickly navigating to crate links as found on crates.io.
 ///
 /// Call with: cargo nav <crate-name> [destination]
 ///
 /// The 'destination' argument is one of several options, shown below. The single-
 /// letter versions are shorthand for less typing.
+#[derive(Debug, StructOpt)]
+#[structopt(name = "cargo-nav")]
 struct Options {
+    /// Enable debug logging.
     #[structopt(short, long)]
     debug: bool,
 
+    /// Name of the crate to look up.
     crate_name: String,
 
+    /// Type of link to open.
     #[structopt(possible_values = &Destination::variants(), case_insensitive = true, default_value = "c")]
     destination: Destination,
 }
@@ -73,10 +74,10 @@ impl fmt::Display for CrateInfo {
         let buffer = pairs
             .iter()
             .filter(|(_, link)| link.is_some())
-            .map(|(label, link)| format!("{}: {}", label, link.as_ref().unwrap()))
+            .map(|(label, link)| format!("{label}: {}", link.as_ref().unwrap()))
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "{}", buffer)
+        write!(f, "{buffer}")
     }
 }
 
@@ -87,7 +88,7 @@ struct CrateInfoWrapper {
     crate_info: CrateInfo,
 }
 
-/// Set up logging based on whether or not the user wants to see debug logging.
+/// Set up logging based on whether or not the user wants debug logging.
 fn setup_logging(debug: bool) -> Result<()> {
     let base_config = if debug {
         Dispatch::new()
@@ -96,17 +97,15 @@ fn setup_logging(debug: bool) -> Result<()> {
     } else {
         Dispatch::new().level(LevelFilter::Info)
     };
-    let colors = ColoredLevelConfig::new().error(Color::Red);
     let stdout_config = Dispatch::new()
         .format(move |out, message, record| {
             if record.level() == LevelFilter::Info {
-                out.finish(format_args!("{}", message))
+                out.finish(format_args!("{message}"))
             } else {
                 out.finish(format_args!(
-                    "[{}] {} {}",
+                    "[{}] {} {message}",
                     record.target(),
-                    colors.color(record.level()),
-                    message
+                    record.level(),
                 ))
             }
         })
@@ -129,7 +128,7 @@ fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
         .user_agent("cargo-nav (https://github.com/celeo/cargo-nav)")
         .build()?;
     let resp = client
-        .get(format!("{}/{}", get_api_url(), crate_name))
+        .get(format!("{}/{crate_name}", get_api_url()))
         .send()?;
     if !resp.status().is_success() {
         return Err(anyhow!(
@@ -168,17 +167,16 @@ fn main() {
 
     let opt = Options::from_iter(args.iter());
     if let Err(e) = setup_logging(opt.debug) {
-        eprintln!("Error setting up: {}", e);
+        eprintln!("Error setting up: {e}");
         process::exit(1);
     }
-    debug!("CLI options: {:?}", opt);
     let info = match get_crate_info(&opt.crate_name) {
         Ok(i) => {
-            debug!("API info: {:?}", i);
+            debug!("API info: {i:?}");
             i
         }
         Err(e) => {
-            debug!("Error getting crate info: {}", e);
+            debug!("Error getting crate info: {e}");
             error!(
                 r#"Could not find crate information for "{}""#,
                 opt.crate_name
@@ -189,14 +187,14 @@ fn main() {
     let url = match determine_link(&info, &opt.destination) {
         Ok(u) => u,
         Err(e) => {
-            error!("Error determining link: {}", e);
-            info!("Here is the info that was found: {}", info);
+            error!("Error determining link: {e}");
+            info!("Here is the info that was found: {info}");
             process::exit(1);
         }
     };
-    debug!("URL to open: {}", url);
+    debug!("URL to open: {url}");
     if let Err(e) = webbrowser::open(&url) {
-        debug!("Error opening link: {}", e);
+        debug!("Error opening link: {e}");
         error!("Could not open the link");
         process::exit(1);
     };
@@ -204,7 +202,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{determine_link, get_crate_info, CrateInfo, Destination};
+    use super::{CrateInfo, Destination, determine_link, get_crate_info};
     use mockito::mock;
 
     fn crate_info() -> CrateInfo {
@@ -236,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_get_crate_info_just_name() {
-        let _m = mock("GET", "/a")
+        let m = mock("GET", "/a")
             .with_body(r#"{"crate":{"name":"a"}}"#)
             .create();
         let info = get_crate_info("a").unwrap();
@@ -244,12 +242,12 @@ mod tests {
         assert_eq!(info.homepage, None);
         assert_eq!(info.documentation, None);
         assert_eq!(info.repository, None);
-        _m.assert();
+        m.assert();
     }
 
     #[test]
     fn test_get_crate_info_all() {
-        let _m = mock("GET", "/a")
+        let m = mock("GET", "/a")
             .with_body(
                 r#"{"crate":{"name":"a","homepage":"b","documentation":"c","repository":"d","other":"info"}}"#,
             )
@@ -259,7 +257,7 @@ mod tests {
         assert_eq!(info.homepage, Some("b".to_owned()));
         assert_eq!(info.documentation, Some("c".to_owned()));
         assert_eq!(info.repository, Some("d".to_owned()));
-        _m.assert();
+        m.assert();
     }
 
     #[test]
