@@ -1,6 +1,6 @@
 # cargo-nav
 
-[![CI](https://github.com/Celeo/cargo-nav/workflows/CI/badge.svg?branch=master)](https://github.com/celeo/cargo-nav/actions?query=workflow%3ACI)
+[![CI](https://github.com/Celeo/cargo-nav/actions/workflows/ci.yml/badge.svg)](https://github.com/Celeo/cargo-nav/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/cargo-nav.svg)](https://crates.io/crates/cargo-nav)
 [![License](https://img.shields.io/crates/l/cargo-nav)](https://github.com/Celeo/cargo-nav/blob/master/Cargo.toml#L10)
 
