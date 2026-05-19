@@ -1,6 +1,6 @@
 [package]
 name = "cargo-nav"
-version = "1.3.0"
+version = "1.4.0"
 authors = ["Celeo <mattboulanger@fastmail.com>"]
 edition = "2024"
 description = "Navigate directly to crate links from your terminal"
