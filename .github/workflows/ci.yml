@@ -2,21 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     if: |
       !(github.event_name == 'push' && contains(github.event.head_commit.message, '[skip ci]'))
     steps:
-    - uses: actions/checkout@v3
-    - uses: Swatinem/rust-cache@v2
-    - name: Install clippy
-      run: rustup component add clippy
-    - name: Run tests
-      run: cargo test --verbose --all
-    - name: Run clippy
-      run: cargo clippy -- -D warnings
-
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+      - name: Install clippy
+        run: rustup component add clippy
+      - name: Run tests
+        run: cargo test --verbose --all
+      - name: Run clippy
+        run: cargo clippy -- -D warnings

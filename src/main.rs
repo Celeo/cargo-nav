@@ -5,26 +5,28 @@
 
 #![deny(unsafe_code)]
 #![deny(clippy::all)]
+#![deny(clippy::pedantic)]
 
 use anyhow::{Result, anyhow};
+use clap::{Parser, ValueEnum};
 use fern::Dispatch;
 use log::{LevelFilter, debug, error, info};
 use serde::Deserialize;
 use std::{env, fmt, io, process};
-use structopt::{StructOpt, clap::arg_enum};
 
-arg_enum! {
-    /// Destination options.
-    ///
-    /// The single-letter options are provided as good
-    /// UX shorthand for the CLI.
-    #[derive(Debug)]
-    enum Destination {
-        C, Crate,
-        H, Homepage,
-        D, Documentation,
-        R, Repository,
-    }
+/// Destination options.
+///
+/// The single-letter options are provided as good UX shorthand for the CLI.
+#[derive(Clone, Debug, ValueEnum)]
+enum Destination {
+    C,
+    Crate,
+    H,
+    Homepage,
+    D,
+    Documentation,
+    R,
+    Repository,
 }
 
 /// CLI program for quickly navigating to crate links as found on crates.io.
@@ -33,18 +35,18 @@ arg_enum! {
 ///
 /// The 'destination' argument is one of several options, shown below. The single-
 /// letter versions are shorthand for less typing.
-#[derive(Debug, StructOpt)]
-#[structopt(name = "cargo-nav")]
+#[derive(Debug, Parser)]
+#[command(name = "cargo-nav")]
 struct Options {
     /// Enable debug logging.
-    #[structopt(short, long)]
+    #[arg(short, long)]
     debug: bool,
 
     /// Name of the crate to look up.
     crate_name: String,
 
     /// Type of link to open.
-    #[structopt(possible_values = &Destination::variants(), case_insensitive = true, default_value = "c")]
+    #[arg(value_enum, ignore_case = true, default_value = "c")]
     destination: Destination,
 }
 
@@ -100,13 +102,13 @@ fn setup_logging(debug: bool) -> Result<()> {
     let stdout_config = Dispatch::new()
         .format(move |out, message, record| {
             if record.level() == LevelFilter::Info {
-                out.finish(format_args!("{message}"))
+                out.finish(format_args!("{message}"));
             } else {
                 out.finish(format_args!(
                     "[{}] {} {message}",
                     record.target(),
                     record.level(),
-                ))
+                ));
             }
         })
         .chain(io::stdout());
@@ -114,22 +116,13 @@ fn setup_logging(debug: bool) -> Result<()> {
     Ok(())
 }
 
-fn get_api_url() -> String {
-    #[cfg(not(test))]
-    return String::from("https://crates.io/api/v1/crates");
-    #[cfg(test)]
-    return mockito::server_url();
-}
-
 /// Get info from a crate from the crates.io API.
-fn get_crate_info(crate_name: &str) -> Result<CrateInfo> {
+fn get_crate_info(crate_name: &str, api_url: &str) -> Result<CrateInfo> {
     debug!("Requesting crate info from crates.io API");
     let client = reqwest::blocking::Client::builder()
         .user_agent("cargo-nav (https://github.com/celeo/cargo-nav)")
         .build()?;
-    let resp = client
-        .get(format!("{}/{crate_name}", get_api_url()))
-        .send()?;
+    let resp = client.get(format!("{api_url}/{crate_name}")).send()?;
     if !resp.status().is_success() {
         return Err(anyhow!(
             "Got bad status {} from crates.io API",
@@ -165,12 +158,12 @@ fn main() {
         args
     };
 
-    let opt = Options::from_iter(args.iter());
+    let opt = Options::parse_from(args.iter());
     if let Err(e) = setup_logging(opt.debug) {
         eprintln!("Error setting up: {e}");
         process::exit(1);
     }
-    let info = match get_crate_info(&opt.crate_name) {
+    let info = match get_crate_info(&opt.crate_name, "https://crates.io/api/v1/crates") {
         Ok(i) => {
             debug!("API info: {i:?}");
             i
@@ -197,13 +190,12 @@ fn main() {
         debug!("Error opening link: {e}");
         error!("Could not open the link");
         process::exit(1);
-    };
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{CrateInfo, Destination, determine_link, get_crate_info};
-    use mockito::mock;
 
     fn crate_info() -> CrateInfo {
         CrateInfo {
@@ -234,10 +226,12 @@ mod tests {
 
     #[test]
     fn test_get_crate_info_just_name() {
-        let m = mock("GET", "/a")
+        let mut server = mockito::Server::new();
+        let m = server
+            .mock("GET", "/a")
             .with_body(r#"{"crate":{"name":"a"}}"#)
             .create();
-        let info = get_crate_info("a").unwrap();
+        let info = get_crate_info("a", &server.url()).unwrap();
         assert_eq!(info.name, "a");
         assert_eq!(info.homepage, None);
         assert_eq!(info.documentation, None);
@@ -247,12 +241,14 @@ mod tests {
 
     #[test]
     fn test_get_crate_info_all() {
-        let m = mock("GET", "/a")
+        let mut server = mockito::Server::new();
+        let m = server
+            .mock("GET", "/a")
             .with_body(
                 r#"{"crate":{"name":"a","homepage":"b","documentation":"c","repository":"d","other":"info"}}"#,
             )
             .create();
-        let info = get_crate_info("a").unwrap();
+        let info = get_crate_info("a", &server.url()).unwrap();
         assert_eq!(info.name, "a");
         assert_eq!(info.homepage, Some("b".to_owned()));
         assert_eq!(info.documentation, Some("c".to_owned()));
@@ -262,8 +258,11 @@ mod tests {
 
     #[test]
     fn test_get_crate_info_not_found() {
-        let result = get_crate_info("b");
+        let mut server = mockito::Server::new();
+        let m = server.mock("GET", "/b").with_status(404).create();
+        let result = get_crate_info("b", &server.url());
         assert!(result.is_err());
+        m.assert();
     }
 
     #[test]
